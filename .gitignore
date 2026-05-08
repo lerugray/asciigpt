@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Environment
+.env
+
+# Output
+*.txt
+!requirements.txt
+
+# IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
+
+# Images (test files — keep them out of git)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.webp
