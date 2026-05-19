@@ -3,7 +3,7 @@
 **AI-assisted ASCII art generator — CLI first, runs local.**
 
 ```
-python generate.py --prompt "steampunk airship over a burning city"
+python generate.py "steampunk airship over a burning city"
 ```
 
 Takes text prompts or source images and produces ASCII art that looks
@@ -37,7 +37,7 @@ export DEEPSEEK_API_KEY=sk-your-key-here
 # Get a key: https://platform.deepseek.com/api_keys
 
 # 5. Generate something
-python generate.py --prompt "a dragon breathing fire over a castle"
+python generate.py "a dragon breathing fire over a castle"
 ```
 
 ## Usage
@@ -45,17 +45,20 @@ python generate.py --prompt "a dragon breathing fire over a castle"
 ### Prompt mode (requires API key)
 
 ```bash
-# Basic generation
-python generate.py --prompt "a lone wolf howling at the moon"
+# Basic generation — the prompt is positional, no flag needed
+python generate.py "a lone wolf howling at the moon"
 
 # Constrain the width
-python generate.py --prompt "pixel art cat" --width 40
+python generate.py "pixel art cat" --width 40
 
 # Add style guidance
-python generate.py --prompt "robot factory" --style "sharp industrial lines, heavy contrast"
+python generate.py "robot factory" --style "sharp industrial lines, heavy contrast"
 
 # Adjust creativity (0.0 = precise, 1.0 = wild)
-python generate.py --prompt "abstract shapes" --temperature 0.9
+python generate.py "abstract shapes" --temperature 0.9
+
+# --prompt also works if you prefer the flag form
+python generate.py --prompt "a lone wolf howling at the moon"
 ```
 
 ### Image mode (no API key needed)
@@ -86,14 +89,15 @@ python generate.py --image photo.jpg --width 120
 ### Hybrid mode
 
 ```bash
-# Use an image as a composition/style reference for a prompt
+# Use an image as a composition/style reference for a prompt.
+# Use --prompt here (not positional) so the prompt and --image stay clear.
 python generate.py --prompt "a warrior" --image warrior-sketch.jpg
 ```
 
 ### Save to file
 
 ```bash
-python generate.py --prompt "dragon" --output dragon.txt
+python generate.py "dragon" --output dragon.txt
 ```
 
 ### See available gradients

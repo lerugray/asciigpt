@@ -7,7 +7,7 @@ via an AI-assisted pipeline. The "gpt" in the name is the point.
 
 Usage:
     # Prompt mode — the marquee feature
-    python generate.py --prompt "steampunk airship over a burning city"
+    python generate.py "steampunk airship over a burning city"
 
     # Image mode — fast deterministic conversion
     python generate.py --image photo.jpg --width 80
@@ -16,7 +16,7 @@ Usage:
     python generate.py --prompt "a lone astronaut" --image space.jpg
 
     # Save to file
-    python generate.py --prompt "dragon" --output dragon.txt
+    python generate.py "dragon" --output dragon.txt
 
 Dependencies: pip install requests pillow
 """
@@ -124,8 +124,18 @@ DEFAULT_HEIGHT = None  # Auto-computed from aspect ratio
 CHAR_ASPECT_RATIO = 0.5  # Terminal characters are roughly 2x taller than wide
 
 # --- API call settings ---
-API_TEMPERATURE = 0.7      # Creative but coherent
-API_MAX_TOKENS = 4096      # Enough for ~80x50 character art
+# Lower temperature than the obvious 0.7 default: when we tried 0.7 the model
+# would commit to a composition, then in the last 30% of the response drift
+# into degenerate repetition (e.g. endless diagonals of `\  \`) until it hit
+# the token cap. 0.55 still gives varied compositions but stays disciplined;
+# lower than 0.5 increased the chance the model would lock into a repeating
+# row of identical buildings/gondolas rather than diversifying.
+API_TEMPERATURE = 0.55
+# An 80-wide, 40-tall piece is ~3200 chars ≈ 800 tokens. The previous 4096
+# cap gave the model so much headroom that runaway-repetition outputs could
+# reach 600×620 (~180KB) before the cap stopped them. 1800 is generous
+# enough for tall subjects (a 50-line piece fits) without funding nonsense.
+API_MAX_TOKENS = 1800
 API_TIMEOUT = 60           # Seconds before giving up on the API
 
 
@@ -280,10 +290,12 @@ def build_system_prompt(width=DEFAULT_WIDTH, height=None, gradient="default",
     Returns:
         A system prompt string.
     """
-    dims = f"{width} characters wide"
-    if height:
-        dims += f" and {height} lines tall"
-    dims += "."
+    # Default to a reasonable height if the caller didn't specify one. The
+    # model needs a hard ceiling — when we left it open-ended ("let the model
+    # decide") it would draw a composition then continue drifting until it
+    # hit max_tokens, producing 600-line nonsense. A sensible default is
+    # roughly half the width, which matches terminal character aspect ratio.
+    effective_height = height if height else max(20, int(width * 0.55))
 
     # The character palette we recommend to the model
     palette = (
@@ -294,10 +306,40 @@ def build_system_prompt(width=DEFAULT_WIDTH, height=None, gradient="default",
     prompt = f"""You are an ASCII art generator. Given a description, produce
 high-quality ASCII art using only printable ASCII characters.
 
-CRITICAL RULES:
+DIMENSIONS (HARD LIMITS — DO NOT EXCEED):
+- Each line MUST be at most {width} characters long. Lines that exceed
+  {width} characters will be truncated and the art will look broken.
+- The total piece MUST be at most {effective_height} lines tall. Anything
+  beyond that will be cut off.
+- A complete piece for most subjects is 15–{effective_height} lines.
+  When the composition feels complete, STOP. Do not pad with whitespace,
+  trailing diagonals, or repeated shapes to fill space.
+
+OUTPUT FORMAT:
 - Output ONLY the ASCII art itself. No markdown fences (no ```), no
   explanations before or after, no "Here is your art:" — just the art.
-- The art should be approximately {dims}
+- No trailing prose, no signature, no caption. The first character of
+  your reply is the first character of the art.
+- PRINTABLE ASCII ONLY. Allowed characters are the 95 printable ASCII
+  codepoints from space (0x20) through tilde (0x7E), plus newlines.
+  NO emoji. NO Unicode box-drawing. NO smart quotes. NO em-dashes.
+  Even one emoji breaks terminal display in monospace fonts.
+
+SUBJECT FIDELITY (most important):
+- The viewer must be able to recognize the subject without being told what
+  it is. A "dragon" should read as a dragon, not a generic blob. A "burning
+  city" should have buildings and flames, not abstract triangles.
+- Identify the subject's 2–4 most distinctive visual features and make
+  sure each one is clearly present. For "steampunk airship": elongated
+  envelope (balloon body), gondola hanging underneath, propellers/rivets.
+  For "burning city": skyline of buildings, flames licking upward, smoke.
+- If the description has multiple elements (e.g. "X over Y"), divide the
+  vertical space: subject 1 in the top region, subject 2 in the bottom
+  region, transition zone in between. Both elements must be present.
+- Abstract symmetrical shapes (circles, diamonds, spindles) are almost
+  always wrong — real subjects have asymmetric, characteristic silhouettes.
+
+COMPOSITION:
 - Use characters that create clear contrast, depth, and texture.
 - This palette creates good shading (lightest→darkest):
   {palette}
@@ -310,7 +352,13 @@ CRITICAL RULES:
 - Create depth by using darker characters (#@$) for shadows and lighter
   characters (. '`) for highlights.
 - The art should look intentional — like vintage computer box art or
-  a carefully composed BBS ASCII — not like a mechanical conversion."""
+  a carefully composed BBS ASCII — not like a mechanical conversion.
+- Never repeat the same line or near-identical line more than 3 times in
+  a row. If you find yourself doing that, the piece is finished — stop.
+- Do not copy-paste a block (e.g. a building, a gondola, a tree) by
+  repeating the same multi-line shape verbatim. If the scene calls for
+  several similar elements — a row of buildings, a flock of birds — vary
+  their heights, widths, and details so each one looks individual."""
 
     if style_hint:
         prompt += f"\n\nSTYLE GUIDANCE: {style_hint}"
@@ -374,19 +422,28 @@ def generate_from_prompt(description, width=DEFAULT_WIDTH, height=None,
     print("   Calling DeepSeek API...", file=sys.stderr)
     raw_art = call_deepseek_api(system_prompt, user_prompt, temperature)
 
-    # Post-process: strip any markdown fences the model might have added
-    art = clean_llm_output(raw_art)
+    # Post-process: strip any markdown fences the model might have added,
+    # and enforce the width budget as a hard backstop in case the model
+    # ignored the dimension constraints.
+    art = clean_llm_output(raw_art, max_width=width)
 
     print(f"   Done! Generated {len(art)} characters.", file=sys.stderr)
     return art
 
 
-def clean_llm_output(text):
+def clean_llm_output(text, max_width=None):
     """Strip markdown fences, leading/trailing whitespace, and other
     common LLM output artifacts from the generated art.
 
     The model sometimes wraps output in ``` fences or adds explanatory
     text despite being told not to. This function cleans that up.
+
+    Args:
+        text: The raw model output.
+        max_width: If set, clip any line longer than this. DeepSeek
+                   occasionally ignores width directives and produces
+                   600-char lines; clipping is the only thing standing
+                   between that and a broken terminal display.
     """
     lines = text.split("\n")
 
@@ -404,7 +461,54 @@ def clean_llm_output(text):
     while lines and lines[-1].strip() == "":
         lines.pop()
 
-    return "\n".join(lines)
+    # Strip non-printable-ASCII characters. The model has been observed to
+    # emit emoji and Unicode box-drawing despite being told not to, which
+    # breaks terminal display in any monospace font. We replace anything
+    # outside the printable ASCII range (0x20–0x7E) plus tab with a space,
+    # so the layout survives even if the content gets a few holes.
+    def _ascii_only(line):
+        return "".join(
+            ch if (0x20 <= ord(ch) <= 0x7E or ch == "\t") else " "
+            for ch in line
+        )
+    lines = [_ascii_only(line) for line in lines]
+
+    # Hard width clamp. We chop rather than wrap because wrapping a line
+    # of ASCII art into two lines destroys the visual composition far
+    # worse than truncating a runaway tail does.
+    if max_width is not None and max_width > 0:
+        lines = [line[:max_width] for line in lines]
+
+    # Runaway-repetition guard. Even with explicit prompt rules against it,
+    # DeepSeek occasionally locks into drawing the same line ~150 times in
+    # a row before max_tokens stops it (observed when generating airships
+    # over cities — model rendered the envelope correctly, then degenerated
+    # into hundreds of identical gondola-strut lines). Cut the tail once we
+    # see more than _MAX_REPEATS consecutive byte-identical lines. 6 leaves
+    # room for legitimate vertical structures (tall columns, building
+    # shafts, smoke trails) while catching obvious lock-in — the failure
+    # mode is always dozens-to-hundreds of repeats, never just 7 or 8.
+    _MAX_REPEATS = 6
+    cleaned = []
+    repeat_count = 0
+    prev_line = None
+    for line in lines:
+        if line == prev_line:
+            repeat_count += 1
+            if repeat_count > _MAX_REPEATS:
+                # Drop everything from here on — the model has clearly
+                # stopped composing and is just filling token budget.
+                break
+        else:
+            repeat_count = 1
+            prev_line = line
+        cleaned.append(line)
+
+    # Trim trailing blanks that may have been kept by the loop above.
+    while cleaned and cleaned[-1].strip() == "":
+        cleaned.pop()
+
+    return "\n".join(cleaned)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -720,21 +824,33 @@ def build_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python generate.py --prompt "steampunk airship over a burning city"
-  python generate.py --prompt "a lone wolf howling at the moon" --width 60
+  python generate.py "steampunk airship over a burning city"
+  python generate.py "a lone wolf howling at the moon" --width 60
   python generate.py --image photo.jpg
   python generate.py --image logo.png --gradient minimal --width 40
-  python generate.py --prompt "dragon" --output dragon.txt
+  python generate.py "dragon" --output dragon.txt
   python generate.py --prompt "robot" --image robot-ref.jpg --output robot.txt
 
 Environment:
-  DEEPSEEK_API_KEY    API key for DeepSeek (required for --prompt mode)
+  DEEPSEEK_API_KEY    API key for DeepSeek (required for prompt mode)
   ASCIIGPT_DEFAULT_WIDTH  Default output width (default: 80)
         """,
     )
 
     # --- Input mode (mutually exclusive group would be ideal, but we
     #     want to allow --prompt + --image for hybrid mode) ---
+    # The prompt can be given either positionally — `generate.py "a dragon"` —
+    # or via --prompt. The positional form is the marquee invocation Ray uses
+    # day-to-day; --prompt stays for explicitness and for hybrid mode where
+    # the positional slot would be ambiguous next to --image.
+    parser.add_argument(
+        "prompt_positional",
+        nargs="?",
+        default=None,
+        metavar="PROMPT",
+        help="Text description of the ASCII art to generate "
+             "(positional form of --prompt)."
+    )
     parser.add_argument(
         "--prompt", "-p",
         type=str,
@@ -852,10 +968,21 @@ def main():
             print(f"  {name:20s}  {preview}")
         return 0
 
+    # Fold the positional prompt into args.prompt so the rest of main() only
+    # has to look in one place. If the user supplies both, that's almost
+    # certainly a mistake — bail rather than silently picking one.
+    if args.prompt_positional is not None:
+        if args.prompt is not None:
+            print("❌ Error: Pass the prompt either positionally or via "
+                  "--prompt, not both.", file=sys.stderr)
+            return 1
+        args.prompt = args.prompt_positional
+
     # --- Validate: need at least one input ---
     if not args.prompt and not args.image:
         parser.print_help()
-        print("\n❌ Error: Provide --prompt or --image (or both).", file=sys.stderr)
+        print("\n❌ Error: Provide a prompt (positional or --prompt) or --image.",
+              file=sys.stderr)
         return 1
 
     # --- Validate dependencies for the chosen mode ---
