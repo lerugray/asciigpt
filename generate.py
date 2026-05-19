@@ -49,6 +49,70 @@ except ImportError:
 # SECTION 1: Configuration
 # ═══════════════════════════════════════════════════════════════════════════
 
+def load_env_file(path=None):
+    """Load KEY=VALUE pairs from a .env file into the environment.
+
+    asciigpt keeps its dependency list tiny (just requests + Pillow), so
+    rather than pull in python-dotenv we parse the .env file ourselves.
+    The format is the familiar one:
+
+        # comments and blank lines are ignored
+        DEEPSEEK_API_KEY=sk-your-key-here
+        ASCIIGPT_DEFAULT_WIDTH=80
+
+    A real environment variable always wins over the file, so an explicit
+    `export DEEPSEEK_API_KEY=...` still takes precedence. If there is no
+    .env file, this does nothing — image mode never needs a key.
+
+    Args:
+        path: Path to the .env file. Defaults to a `.env` sitting next to
+              this script, which is where `cp .env.example .env` puts it.
+    """
+    if path is None:
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(script_dir, ".env")
+
+    if not os.path.isfile(path):
+        return  # No .env file — fall back to the real environment.
+
+    try:
+        with open(path, "r", encoding="utf-8") as env_file:
+            for raw_line in env_file:
+                line = raw_line.strip()
+
+                # Skip blank lines and comments
+                if not line or line.startswith("#"):
+                    continue
+
+                # Tolerate an optional "export " prefix
+                if line.startswith("export "):
+                    line = line[len("export "):].strip()
+
+                # A valid line is KEY=VALUE — split on the first '=' only
+                if "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip()
+
+                # Strip one layer of matching surrounding quotes, if present
+                if (len(value) >= 2 and value[0] == value[-1]
+                        and value[0] in ("'", '"')):
+                    value = value[1:-1]
+
+                # Don't clobber variables already set in the real environment
+                if key and key not in os.environ:
+                    os.environ[key] = value
+    except OSError:
+        # A .env that exists but can't be read shouldn't crash the tool.
+        pass
+
+
+# Load the .env file (if any) before reading the configuration below, so
+# that values like DEEPSEEK_API_KEY are available to os.environ.get(...).
+load_env_file()
+
+
 # --- API settings ---
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "")
 DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions"
@@ -119,9 +183,11 @@ def check_api_ready():
         return False, "Missing 'requests' library. Install it: pip install requests"
     if not DEEPSEEK_API_KEY:
         return False, (
-            "DEEPSEEK_API_KEY environment variable is not set.\n"
-            "Get a key from https://platform.deepseek.com/api_keys\n"
-            "Then run: export DEEPSEEK_API_KEY=sk-..."
+            "DEEPSEEK_API_KEY is not set.\n"
+            "Get a key from https://platform.deepseek.com/api_keys, then "
+            "either:\n"
+            "  - copy .env.example to .env and put your key in it, or\n"
+            "  - run: export DEEPSEEK_API_KEY=sk-..."
         )
     return True, ""
 
