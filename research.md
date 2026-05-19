@@ -2,6 +2,11 @@
 
 > Phase 2 findings. What exists, what they do well, where they fall short,
 > and what's worth adapting into our AI-assisted pipeline.
+>
+> Drafted 2026-05-07 from prior research. Validation pass 2026-05-18: jp2a and
+> libcaca installed and run on macOS, asciicam built from source, asciiart.eu
+> and Nokse22/ascii-draw checked against current upstream. What changed in
+> that pass is recorded in the Validation Log at the end.
 
 ---
 
@@ -10,18 +15,17 @@
 **Type:** Browser-based web converter (JavaScript + Bootstrap)
 
 ### Strengths
-- **Rich parameter set.** Characters count, brightness, contrast, saturation,
-  hue, grayscale, sepia, invert, thresholding, sharpness, and edge detection
-  — all exposed as sliders. This is the most comprehensive settings panel
-  I've seen in a free tool.
-- **Multiple ASCII gradients.** 12 gradient styles including Alphabetic,
-  Alphanumeric, Code Page 437, High Gray Scale, Math Symbols, Numerical,
-  Max Black and White, and Space Density. This is the single best feature
-  to steal — named gradient presets that users can switch between.
+- **Rich parameter set.** Characters, Brightness, Contrast, Saturation, Hue,
+  Grayscale, Sepia, Invert Colors, Thresholding, Sharpness, and Edge Detection
+  — all exposed as sliders. The fullest settings panel I've seen in a free tool.
+- **Multiple ASCII gradients.** Around a dozen named character-set styles —
+  Alphabetic, Alphanumeric, Arrow, Code Page 437, Extended High, Gray Scale,
+  Minimalist, Math Symbols, Normal, Normal 2, Numerical — plus a Max Black and
+  White mode. This is the single best feature to adapt: named gradient presets
+  the user picks by name.
 - **Dithering options.** None, Floyd-Steinberg, Jarvis-Judice-Ninke (JJN),
   Stucki, Atkinson. Four well-known error-diffusion algorithms.
 - **Output flexibility.** Copy to clipboard, save as .txt, save as PNG.
-  Transparent frame option for presentation.
 - **Free for any use.** No attribution required. Commercial friendly.
 
 ### Gaps
@@ -45,7 +49,7 @@
 
 ---
 
-## 2. Nokse22/ascii-draw (429 ★)
+## 2. Nokse22/ascii-draw (488 ★)
 
 **Type:** Manual sketch/drawing application (Python + GTK4 + libadwaita)
 
@@ -54,16 +58,16 @@
   rectangles (customizable border/fill chars), freehand brush, line drawing
   (Cartesian, freehand, stepped), text with FIGlet fonts, table creator,
   tree view, eraser, character picker, flood fill.
-- **Active community.** 429 stars, 377 commits, Matrix chat room. Healthy
-  project with regular releases (v1.3.0 in Nov 2025).
+- **Active community.** 488 stars, 379 commits, regular releases (v1.3.0 in
+  Nov 2025), distributed through Flathub and the Snap Store. A healthy project.
 - **Good UX patterns.** The tool palette, character picker, and selection
   tools are well-designed. The FIGlet integration is clever.
 
 ### Gaps
 - **Not a generator.** This is a drawing tool. You manually place characters.
   There's no conversion from images or prompts.
-- **Linux only.** GTK4 + GNOME dependency. Won't run on macOS (Ray's platform)
-  without significant work.
+- **Linux only.** GTK4 + libadwaita + GNOME dependency. Won't run on macOS
+  (Ray's platform) without significant work.
 - **Desktop GUI.** Not embeddable as a library or callable from CLI.
 
 ### What to adapt
@@ -76,70 +80,137 @@
 
 ---
 
-## 3. jp2a (1k ★)
+## 3. jp2a (v1.3.3)
 
-**Type:** CLI JPEG-to-ASCII converter (C)
+**Type:** CLI image-to-ASCII converter (C)
+
+The original `cslarsen/jp2a` (~1k ★) is unmaintained and now points at the
+`Talinx/jp2a` fork, which is the live project — v1.3.3, December 2025. The
+`--version` string credits Christian Stigen Larsen (2006–2016) and Christoph
+Raitzig (2020–2024), so the tool is roughly twenty years old.
 
 ### Strengths
-- **The gold standard for baseline quality.** 1k stars, 499 commits, 19 years
-  of development. Simple, fast, reliable.
-- **Good CLI flags.** `--width`, `--height`, `--colors`, `--html`, `--term-fit`,
-  `--background`, `--invert`, `--flip`, `--curl` for URL fetching.
-- **Output modes.** Plain text, HTML (with CSS), colored ANSI terminal output.
-- **Widely available.** In every Linux package manager. The reference that
-  other tools are measured against.
+- **The baseline everything else is measured against.** Simple, fast, reliable,
+  in every Linux package manager and Homebrew.
+- **Reads JPEG, PNG, and WebP natively.** The name says "j(peg)2a" but modern
+  jp2a is not JPEG-only — confirmed by `jp2a --help` on v1.3.3.
+- **Good CLI flags.** `--width` / `--height` / `--size`, `--term-fit` and
+  `--term-center` (fit the terminal), `--invert` and `--background=dark|light`,
+  `--flipx` / `--flipy`, `--border`, `--output`, and `--chars` for a fully
+  custom glyph palette.
+- **An edge-detection mode.** `--edges-only` together with `--edge-threshold`
+  shades gradients with directional glyphs (`-`, `/`, `|`, `\`). On a test
+  image it produced a real outline drawing, not a luminance ramp. jp2a is more
+  than pixel-luminance mapping.
+- **Output modes.** Plain text, XHTML/HTML (`--html`, `--htmlls`, `--xhtml`,
+  with CSS), and ANSI color via `--colors` with `--color-depth` up to 24-bit
+  truecolor.
+- **URL input is built in.** Pass a URL as an argument (needs libcurl at build
+  time) — no separate flag.
 
 ### Gaps
-- **JPEG only** (by name and primary function). The man page says you can
-  pipe through ImageMagick `convert`, but native format support is limited.
-- **"Very basic scaling algorithm."** The man page itself admits this for
-  non-WebP formats. Quality degrades noticeably at low character counts.
-- **No content awareness.** jp2a doesn't know what's in the image. A face
-  and a landscape get the same pixel-luminance-to-glyph treatment.
-- **No prompt-to-art.** Text input not supported.
+- **"Very basic scaling algorithm."** The man page's own words: *"jp2a uses a
+  very basic scaling algorithm for every image format except WebP."* Its
+  documented workaround is to pipe through WebP: `cwebp -quiet image.jpg -o -
+  | jp2a -`. Quality degrades noticeably at low character counts.
+- **No content awareness.** jp2a doesn't know what's in the image. A face and
+  a landscape get the same luminance-to-glyph treatment. `--edges-only` is
+  geometric, not semantic — it finds gradients, not subjects.
+- **No prompt-to-art.** Text input is not supported.
 
 ### What to adapt
-- **CLI flag conventions.** The `--width`, `--invert`, `--background` flags
-  are the de facto standard. We should match them where they make sense.
-- **HTML output mode.** Useful for embedding art in web pages. We should
-  support this as an output format.
-- **Quality benchmark.** We'll compare our image-to-ascii output against
-  jp2a's output and the bar is: must be noticeably better, especially at
-  low character counts where AI glyph selection shines.
+- **CLI flag conventions.** `--width`, `--invert`, `--background` are the de
+  facto standard. Match them where they make sense.
+- **HTML output mode.** Useful for embedding art in web pages — support it.
+- **Custom-palette flag (`--chars`).** Confirms users want to override the
+  glyph set. Our named gradient presets are the friendlier version of the
+  same idea.
+- **Directional edge glyphs.** `--edge-threshold` proves directional glyphs
+  along gradients pay off. Our planned Sobel edge pass should feed the same
+  kind of `-/|\` glyph selection.
+- **Quality benchmark.** jp2a is still the bar for image→ASCII. Our output
+  must be noticeably better, especially at low character counts where AI
+  glyph selection should shine.
 
 ---
 
-## 4. libcaca / img2txt
+## 4. libcaca / img2txt (v0.99.beta20)
 
 **Type:** C library + CLI tool for colored ASCII art conversion
 
+libcaca has shipped as "0.99 beta" for about twenty years (current build dated
+Oct 2021). Treat it as stable but in long-term maintenance, not active
+development.
+
 ### Strengths
-- **Broad format support.** PNG, JPEG, GIF, BMP (via Imlib2).
+- **Broad format support.** PNG, JPEG, GIF, BMP — full support requires
+  libcaca built against Imlib2; without it, BMP only.
 - **Rich parameter set.** Width, height, font-width, font-height, brightness,
-  contrast, gamma, dither (none, ordered2/4/8, random, Floyd-Steinberg).
-- **Many output formats.** ANSI, UTF8, HTML, SVG, PostScript, IRC, BBCode, TGA.
-  This is the widest output format selection of any tool surveyed.
-- **Color support.** Generates colored ANSI escape codes, not just monochrome.
+  contrast, gamma, dither.
+- **Many output formats.** `img2txt -f` exports twelve: caca, ansi, utf8,
+  utf8cr, html, html3, irc, bbfr (BBCode, French), ps (PostScript), svg, tga,
+  and troff. The widest output selection of any tool surveyed.
+- **Color support.** Generates colored ANSI escape codes by default — even the
+  `utf8` format wraps every character in escape codes, not just monochrome.
 - **Well-documented.** Clear man page with examples.
 
 ### Gaps
 - **No AI.** Same pixel-luminance approach as jp2a. Deterministic and simple.
-- **C library.** Not directly usable from Python without bindings. We'd have
-  to shell out or use ctypes.
-- **Quality ceiling.** Like jp2a, the output looks like "I ran it through a
-  converter" rather than intentional art.
+- **C library.** Not directly usable from Python without bindings — we'd shell
+  out or use ctypes.
+- **Quality ceiling.** Like jp2a, the output reads as "ran through a converter"
+  rather than intentional art.
 
 ### What to adapt
-- **Output format list.** ANSI (terminal), HTML, SVG are the three formats
-  we should support. The img2txt format list is an excellent checklist.
-- **Dithering algorithms.** Floyd-Steinberg as default, with ordered and
-  random as options. We can implement these in pure Python.
-- **Gamma correction.** Often overlooked but important for dark/bright image
-  balancing. We should include it in our preprocessing.
+- **Output format list.** ANSI (terminal), HTML, SVG are the three formats we
+  should support. img2txt's `-f` list is a useful checklist of what's possible.
+- **Dithering algorithms.** Floyd-Steinberg (`fstein`) as default, with ordered
+  (2×2, 4×4, 8×8) and random as options. All implementable in pure Python.
+- **Gamma correction.** Often overlooked but important for balancing dark and
+  bright images. Include it in preprocessing.
 
 ---
 
-## 5. Other web converters
+## 5. asciicam (muesli/asciicam, 145 ★)
+
+**Type:** Real-time webcam-to-ASCII terminal viewer (Go, MIT). By Christian
+Muehlhaeuser (muesli). Roughly 21 commits, no tagged releases — novelty-scale.
+
+### Strengths
+- **Real-time.** Converts a live webcam feed to ASCII/ANSI in the terminal at
+  speed. The only tool in this survey that handles live video.
+- **ANSI color.** `-ansi` for full color, `-color` for a single-color tint.
+- **Greenscreen.** `-gen` samples the background to a data directory, then
+  `-greenscreen` subtracts it from the live feed — a virtual greenscreen
+  rendered in ASCII. Genuinely clever.
+- **Tiny footprint.** A single self-contained Go binary, few dependencies.
+
+### Gaps
+- **Linux only — and it enforces it.** Built from source with Go 1.26 and run
+  on macOS, the binary prints `asciicam only works on Linux` and exits. It
+  reads Video4Linux device nodes (`-dev /dev/video0`), which macOS has no
+  equivalent of. Ray is on macOS — he cannot run asciicam at all.
+- **Not a converter.** Webcam frames only. There is no image-file input; you
+  cannot point it at a photo.
+- **Not a generator.** No prompt input, no AI, no composition.
+- **Novelty-scale.** ~21 commits, no releases — closer to a demo of muesli's
+  video/termenv libraries than a maintained tool.
+
+### What to adapt
+- **Little to nothing.** asciicam sits in a category asciigpt does not target.
+  Live webcam capture is the same kind of out-of-scope as the drawing tools —
+  asciigpt converts images and generates from prompts; it is not a video tool.
+- **One transferable note:** asciicam has to convert each frame fast enough for
+  video. That's a reminder to keep the deterministic image path cheap — though
+  asciigpt deliberately trades speed for quality, so it's a low-priority lesson.
+- `-ansi` is one more data point that color output is expected; already planned
+  for v2.
+- **Net:** asciicam is a boundary marker, not a parts donor. It shows where
+  asciigpt's scope ends.
+
+---
+
+## 6. Other web converters
 
 (imagetoasciiart.com, convertico.com, codeshack.io, asciiartgenerator.app)
 
@@ -152,23 +223,27 @@ validate that the market exists but is served by cookie-cutter tools.
 
 ## Summary: The Gap
 
-| Capability | jp2a | libcaca | asciiart.eu | Nokse22 | **asciigpt** |
-|---|---|---|---|---|---|
-| Image → ASCII | ✅ | ✅ | ✅ | ❌ | ✅ |
-| Prompt → ASCII | ❌ | ❌ | ❌ | ❌ | ✅ |
-| AI glyph selection | ❌ | ❌ | ❌ | ❌ | ✅ |
-| Content awareness | ❌ | ❌ | ❌ | ❌ | ✅ |
-| CLI-first | ✅ | ✅ | ❌ | ❌ | ✅ |
-| Drawing/editing | ❌ | ❌ | ❌ | ✅ | ❌ (non-goal) |
-| Gradient presets | ❌ | ❌ | ✅ | ❌ | ✅ |
-| Dithering options | ❌ | ✅ | ✅ | ❌ | ✅ |
-| Color output | Partial | ✅ | ❌ | ❌ | ✅ |
+| Capability | jp2a | libcaca | asciiart.eu | Nokse22 | asciicam | **asciigpt** |
+|---|---|---|---|---|---|---|
+| Image → ASCII | ✅ | ✅ | ✅ | ❌ | ❌ (webcam) | ✅ |
+| Prompt → ASCII | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| AI glyph selection | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| Content awareness | ❌ | ❌ | ❌ | ❌ | ❌ | ✅ |
+| CLI-first | ✅ | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Edge detection | ✅ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Drawing/editing | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ (non-goal) |
+| Gradient presets | ❌ | ❌ | ✅ | ❌ | ❌ | ✅ |
+| Dithering options | ❌ | ✅ | ✅ | ❌ | ❌ | ✅ |
+| Color output | ✅ truecolor | ✅ | ❌ | ❌ | ✅ | ✅ |
+| Live video | ❌ | ❌ | ❌ | ❌ | ✅ | ❌ (non-goal) |
 
 ### The unique value proposition
 
 No existing tool takes a text prompt and produces ASCII art through an AI
 pipeline. The entire landscape is pixel-luminance-to-glyph mapping — fast,
-deterministic, and mechanically blind to image content.
+deterministic, and mechanically blind to image content. jp2a's `--edges-only`
+is the closest anyone comes to structure-aware output, and it is still pure
+geometry.
 
 asciigpt's differentiation is:
 1. **Prompt → art.** "Steampunk airship over a burning city" — the LLM
@@ -189,3 +264,40 @@ asciigpt's differentiation is:
 - **pyfiglet** for stylized text overlays (from Nokse22's approach).
 - **Floyd-Steinberg dithering** in pure Python (trivial to implement).
 - **Named gradient presets** as a configuration layer (from asciiart.eu).
+
+---
+
+## Validation Log
+
+The 2026-05-07 draft was written from prior research. This pass (2026-05-18)
+checked it against the actual tools.
+
+**Installed and run on macOS (Darwin 25.4):**
+- `jp2a 1.3.3` — installed via Homebrew. Ran `jp2a --help`, `man jp2a`, and
+  conversions of a generated test image at several widths and with
+  `--edges-only`.
+- `img2txt` (libcaca `0.99.beta20`) — installed via Homebrew. Ran `--help`
+  and conversions with `fstein` and `none` dithering.
+- `asciicam` (muesli/asciicam) — built from source with Go 1.26. The binary
+  refuses to run on macOS (`asciicam only works on Linux`); flags were
+  confirmed from the Go source instead.
+
+**Checked against current upstream (cannot be run on this machine):**
+- asciiart.eu/image-to-ascii — browser tool; settings and gradient list
+  confirmed live.
+- Nokse22/ascii-draw — Linux/GTK4 desktop app; repo metadata confirmed live.
+
+**Corrections made to the 2026-05-07 draft:**
+- jp2a is **not JPEG-only** — v1.3.3 reads JPEG, PNG, and WebP natively.
+- jp2a has an **edge-detection mode** (`--edges-only` + `--edge-threshold`)
+  with directional glyphs. The draft missed it and described jp2a as purely
+  luminance-based.
+- jp2a supports **24-bit truecolor** (`--color-depth=24`); the draft's
+  comparison table marked its color support "Partial."
+- Removed a non-existent `jp2a --curl` flag — URL input is a plain argument.
+- libcaca's `img2txt` exports **twelve** formats (caca, ansi, utf8, utf8cr,
+  html, html3, irc, bbfr, ps, svg, tga, troff); the draft listed eight.
+- Nokse22/ascii-draw star count refreshed (429 → 488).
+- asciiart.eu gradient-style names corrected to the current set.
+- **Added section 5, asciicam** — it was named in the task scope but missing
+  from the draft entirely.
