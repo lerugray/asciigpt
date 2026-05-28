@@ -13,6 +13,7 @@ venv/
 # Output
 *.txt
 !requirements.txt
+!requirements-dev.txt
 
 # IDE
 .vscode/
@@ -21,10 +22,16 @@ venv/
 # macOS
 .DS_Store
 
-# Images (test files — keep them out of git)
+# Images (scratch / test files — keep them out of git)
 *.jpg
 *.jpeg
 *.png
 *.gif
 *.bmp
 *.webp
+*.html
+
+# ...but DO commit the example gallery (real CLI output the README shows).
+# These negations must come after the broad ignores above to take effect.
+!examples/
+!examples/**

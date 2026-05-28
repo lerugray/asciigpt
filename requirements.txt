@@ -1,8 +1,9 @@
-# asciigpt dependencies
+# asciigpt runtime dependencies
 # Install: pip install -r requirements.txt
 
-# HTTP client for DeepSeek API calls
-requests>=2.28.0
-
-# Image loading and processing
+# Image loading and the whole preprocessing stack
+# (resize, grayscale, brightness/contrast/sharpness/gamma, invert, threshold).
 Pillow>=9.0.0
+
+# FIGlet text banners (--text and banner overlays).
+pyfiglet>=1.0.0
