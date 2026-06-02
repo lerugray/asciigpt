@@ -38,6 +38,7 @@ from . import (
 )
 from . import figlet as _figlet
 from . import render as _render
+from . import generate as _generate
 
 
 def build_parser():
@@ -45,13 +46,15 @@ def build_parser():
     parser = argparse.ArgumentParser(
         prog="asciigpt",
         description=(
-            "asciigpt — convert an image to ASCII art (deterministic). "
-            "Named gradient presets, edge detection, dithering, and "
+            "asciigpt — generate ASCII art from a text prompt, or convert an "
+            "image. Named gradient presets, edge detection, dithering, and "
             "text/ANSI/HTML output."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 Examples:
+  asciigpt --prompt "a shaded sphere" --preset high-contrast
+  asciigpt --prompt "a little house" --edges
   asciigpt photo.jpg
   asciigpt photo.jpg --width 100 --preset high-contrast
   asciigpt logo.png --edges --edge-threshold 60
@@ -76,6 +79,19 @@ Examples:
         dest="image_flag",
         default=None,
         help="Path to the image to convert (flag form of the positional).",
+    )
+
+    # --- generation (prompt -> image -> ASCII) ------------------------
+    parser.add_argument(
+        "--prompt", "-P", default=None, metavar="TEXT",
+        help="Generate ASCII art from a text description instead of "
+             "converting a file (prompt -> image -> ASCII).",
+    )
+    parser.add_argument(
+        "--gen-size", type=int, default=_generate.DEFAULT_GEN_SIZE,
+        metavar="PX",
+        help="Pixel size of the generated base image before conversion "
+             f"(prompt mode only; default {_generate.DEFAULT_GEN_SIZE}).",
     )
 
     # --- size (jp2a conventions) --------------------------------------
@@ -209,44 +225,67 @@ def main(argv=None):
         _print_presets()
         return 0
 
-    # Resolve the image source (positional wins; fall back to --image).
+    # Resolve inputs: a generation prompt, an image (the positional wins over
+    # the --image flag), and/or a FIGlet banner.
     image_path = args.image or args.image_flag
+    prompt = args.prompt
 
-    # Need at least one of: an image, or --text.
-    if not image_path and not args.text:
+    # Need at least one input.
+    if not image_path and not prompt and not args.text:
         parser.print_help()
-        print("\nError: provide an image, or --text for a FIGlet banner.",
-              file=sys.stderr)
+        print(
+            "\nError: provide a --prompt to generate from, an image to "
+            "convert, or --text for a FIGlet banner.",
+            file=sys.stderr,
+        )
         return 1
 
+    # Conversion knobs shared by the image path and the prompt path.
+    convert_opts = dict(
+        width=args.width,
+        height=args.height,
+        preset=args.preset,
+        chars=args.chars,
+        dither=args.dither,
+        edges=args.edges,
+        edge_threshold=args.edge_threshold,
+        brightness=args.brightness,
+        contrast=args.contrast,
+        sharpness=args.sharpness,
+        gamma=args.gamma,
+        invert=args.invert,
+        threshold=args.threshold,
+        output_format=args.output_format,
+        background=args.background,
+    )
+
     try:
-        # ---- Standalone FIGlet banner (no image) ---------------------
-        if args.text and not image_path:
+        # ---- Standalone FIGlet banner (text only) --------------------
+        if args.text and not image_path and not prompt:
             banner = _figlet.render_text(
                 args.text, font=args.font, width=args.width
             )
             _write(banner, args.output)
             return 0
 
-        # ---- Image conversion ---------------------------------------
-        art = image_to_ascii(
-            image_path,
-            width=args.width,
-            height=args.height,
-            preset=args.preset,
-            chars=args.chars,
-            dither=args.dither,
-            edges=args.edges,
-            edge_threshold=args.edge_threshold,
-            brightness=args.brightness,
-            contrast=args.contrast,
-            sharpness=args.sharpness,
-            gamma=args.gamma,
-            invert=args.invert,
-            threshold=args.threshold,
-            output_format=args.output_format,
-            background=args.background,
-        )
+        # ---- Produce the art: generate from a prompt, or convert -----
+        if prompt:
+            if image_path:
+                print(
+                    "Note: --prompt given; generating from text and ignoring "
+                    "the image argument.",
+                    file=sys.stderr,
+                )
+            print(
+                "Generating (procedural placeholder): "
+                f"{_generate.procedural_caption(prompt)}...",
+                file=sys.stderr,
+            )
+            art = _generate.prompt_to_ascii(
+                prompt, size=args.gen_size, **convert_opts
+            )
+        else:
+            art = image_to_ascii(image_path, **convert_opts)
 
         # ---- Optional FIGlet overlay (text format only) -------------
         if args.text:

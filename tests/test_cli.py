@@ -91,7 +91,9 @@ def test_main_no_input_returns_error(capsys):
     code = cli.main([])
     assert code == 1
     err = capsys.readouterr().err
-    assert "provide an image" in err.lower()
+    # The error names all three input modes: prompt, image, and --text.
+    assert "an image to convert" in err.lower()
+    assert "--prompt" in err.lower()
 
 
 def test_main_list_presets(capsys):

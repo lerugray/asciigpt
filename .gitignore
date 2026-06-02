@@ -15,9 +15,10 @@ venv/
 !requirements.txt
 !requirements-dev.txt
 
-# IDE
+# IDE / tooling
 .vscode/
 .idea/
+.serena/
 
 # macOS
 .DS_Store

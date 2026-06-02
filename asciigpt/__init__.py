@@ -7,13 +7,16 @@ edge-detection mode with directional glyphs, Floyd-Steinberg / ordered /
 Atkinson dithering, plain-text / ANSI-truecolor / HTML output, custom glyph
 palettes, and FIGlet text banners.
 
-The "GPT" / AI-guided glyph-selection layer is a documented *future*
-enhancement on top of this deterministic base — it is intentionally not
-part of this build (no image generation, no LLM calls here).
+The deterministic converter is the engine. On top of it sits the headline
+capability: generating ASCII art from a text prompt via a pluggable image
+backend (prompt -> image -> convert). See ``asciigpt.generate``.
 
 Public API
 ----------
-    image_to_ascii(path, ...)   -> str   # the main converter
+    image_to_ascii(path, ...)   -> str   # the converter (path OR PIL image)
+    prompt_to_ascii(prompt, ...) -> str  # generate art from a text prompt
+    ImageBackend, ProceduralBackend      # pluggable generation backends
+    get_backend, default_backend         # backend registry
     PRESETS, get_ramp, preset_names      # gradient presets
     ALGORITHMS, dither_names             # dithering
     detect_edges                         # Sobel edge mode
@@ -47,8 +50,18 @@ from .render import (
     grid_to_html,
 )
 from .figlet import render_text, overlay_banner, available as figlet_available
+from .generate import (
+    prompt_to_ascii,
+    ImageBackend,
+    ProceduralBackend,
+    BACKENDS,
+    get_backend,
+    default_backend,
+    procedural_caption,
+    DEFAULT_GEN_SIZE,
+)
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "__version__",
@@ -83,4 +96,13 @@ __all__ = [
     "render_text",
     "overlay_banner",
     "figlet_available",
+    # generation (prompt -> image -> ASCII)
+    "prompt_to_ascii",
+    "ImageBackend",
+    "ProceduralBackend",
+    "BACKENDS",
+    "get_backend",
+    "default_backend",
+    "procedural_caption",
+    "DEFAULT_GEN_SIZE",
 ]

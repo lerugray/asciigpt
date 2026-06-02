@@ -38,6 +38,12 @@ def load_image(path):
         FileNotFoundError: If the path does not exist.
         OSError: If the file exists but is not a readable image.
     """
+    # Already a Pillow image (e.g. one a generation backend produced in
+    # memory)? Use it as-is. This lets image_to_ascii() accept an open image,
+    # not just a path, which is exactly what the prompt -> image -> ASCII
+    # generation path relies on.
+    if isinstance(path, Image.Image):
+        return path
     try:
         return Image.open(path)
     except FileNotFoundError:
