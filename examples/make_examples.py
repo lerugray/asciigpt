@@ -118,7 +118,21 @@ def main():
         ),
     )
 
-    # --- Example 3: a FIGlet banner ------------------------------------
+    # --- Example 3: generated straight from a text prompt --------------
+    # The procedural backend (offline, deterministic) makes a base image from
+    # the prompt; the converter turns it into ASCII. Reproducible, no network.
+    _write(
+        "prompt_sphere.txt",
+        asciigpt.prompt_to_ascii(
+            "a shaded sphere", width=54, preset="high-contrast",
+        ),
+    )
+    _write(
+        "prompt_house_edges.txt",
+        asciigpt.prompt_to_ascii("a little house", width=54, edges=True),
+    )
+
+    # --- Example 4: a FIGlet banner ------------------------------------
     _write("banner.txt", asciigpt.render_text("asciigpt", font="standard"))
 
     # --- Example 4: HTML output (truecolor) ----------------------------
