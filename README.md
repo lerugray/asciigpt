@@ -122,10 +122,13 @@ asciigpt --prompt "a neon city at dusk" --backend command --format ansi
 The default **procedural** backend recognises a handful of subjects (sphere,
 sun, moon, star, house, tree, mountain, heart, face) and draws a deterministic
 abstract composition for anything else — it exists to prove the pipeline
-offline, not to be a general artist. For arbitrary prompts, point
-`--backend command` at a real generator: a hosted text-to-image API, or the
-[`rasterize`](https://github.com/suxrobgm/rasterize) Claude Code plugin
-rendering to a file. Design notes live in [`docs/handoffs/`](docs/handoffs/).
+offline, no setup required. **For real art from any prompt, bring your own AI:**
+a ready-made OpenAI adapter ships in
+[`scripts/backends/`](scripts/backends/openai_image.py), the
+[`rasterize`](https://github.com/suxrobgm/rasterize) Claude Code plugin covers a
+Claude sub, and any image generator works via the template above.
+
+👉 **[docs/byo-ai.md](docs/byo-ai.md)** has copy-paste recipes.
 
 ### Convert an image
 
