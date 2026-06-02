@@ -32,6 +32,10 @@ Swapping backends never changes the converter; only this file grows.
 
 import hashlib
 import math
+import os
+import shlex
+import subprocess
+import tempfile
 
 from PIL import Image, ImageDraw
 
@@ -311,11 +315,90 @@ class ProceduralBackend(ImageBackend):
 
 
 # --------------------------------------------------------------------------
+# A live backend: shell out to any external image generator
+# --------------------------------------------------------------------------
+
+class CommandBackend(ImageBackend):
+    """Generate the base image by running an external command.
+
+    This is the seam a *real* generator drops into without asciigpt changing:
+    a hosted text-to-image API CLI (the retrogaze service, cost absorbed
+    server-side), a local Stable-Diffusion script, or a rasterize render
+    written to a file. asciigpt stays out of the image-making business — it
+    just runs the command and converts whatever PNG comes back.
+
+    The command is a shell template with three placeholders:
+
+        {prompt}   the text prompt (asciigpt shell-quotes it for you)
+        {output}   the path asciigpt expects the image at (shell-quoted)
+        {size}     the requested square pixel size (an int)
+
+    Example::
+
+        ASCIIGPT_IMAGE_COMMAND='txt2img --prompt {prompt} --size {size} --out {output}'
+        asciigpt --prompt "a neon city" --backend command
+
+    The command must write an image to ``{output}``; asciigpt loads and
+    converts it like any other image.
+    """
+
+    name = "command"
+
+    def __init__(self, command=None, *, timeout=180):
+        # Explicit command wins; otherwise read the environment. Either may be
+        # empty here — we only complain at generate() time, so constructing the
+        # backend (e.g. via get_backend) never fails just for lack of config.
+        self.command = command or os.environ.get("ASCIIGPT_IMAGE_COMMAND") or ""
+        self.timeout = timeout
+
+    def generate(self, prompt, *, size=DEFAULT_GEN_SIZE):
+        if not prompt or not prompt.strip():
+            raise ValueError("prompt must be a non-empty string.")
+        if not self.command.strip():
+            raise RuntimeError(
+                "CommandBackend has no command. Set ASCIIGPT_IMAGE_COMMAND (or "
+                "pass command=...) to a shell template using {prompt} {output} "
+                "{size} that writes an image to {output}."
+            )
+        size = max(16, int(size))
+        with tempfile.TemporaryDirectory(prefix="asciigpt-gen-") as tmp:
+            out_path = os.path.join(tmp, "image.png")
+            command = self.command.format(
+                prompt=shlex.quote(prompt),
+                output=shlex.quote(out_path),
+                size=size,
+            )
+            try:
+                subprocess.run(
+                    command, shell=True, check=True, timeout=self.timeout,
+                    capture_output=True, text=True,
+                )
+            except subprocess.TimeoutExpired:
+                raise RuntimeError(
+                    f"Image command timed out after {self.timeout}s."
+                )
+            except subprocess.CalledProcessError as exc:
+                detail = (exc.stderr or exc.stdout or "").strip()
+                raise RuntimeError(
+                    f"Image command failed (exit {exc.returncode}). {detail}"
+                )
+            if not os.path.exists(out_path):
+                raise RuntimeError(
+                    "Image command succeeded but wrote no image to {output}; "
+                    "check the command template's output path."
+                )
+            # Load fully into memory before the temp directory is removed.
+            with Image.open(out_path) as img:
+                return img.convert("RGB").copy()
+
+
+# --------------------------------------------------------------------------
 # Backend registry + the public generate function
 # --------------------------------------------------------------------------
 
 BACKENDS = {
     "procedural": ProceduralBackend,
+    "command": CommandBackend,
 }
 
 

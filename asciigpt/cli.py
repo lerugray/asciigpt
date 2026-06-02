@@ -93,6 +93,11 @@ Examples:
         help="Pixel size of the generated base image before conversion "
              f"(prompt mode only; default {_generate.DEFAULT_GEN_SIZE}).",
     )
+    parser.add_argument(
+        "--backend", default="procedural", choices=sorted(_generate.BACKENDS),
+        help="Image backend for --prompt (default: procedural, the offline "
+             "placeholder). 'command' shells out to $ASCIIGPT_IMAGE_COMMAND.",
+    )
 
     # --- size (jp2a conventions) --------------------------------------
     parser.add_argument(
@@ -276,13 +281,22 @@ def main(argv=None):
                     "the image argument.",
                     file=sys.stderr,
                 )
-            print(
-                "Generating (procedural placeholder): "
-                f"{_generate.procedural_caption(prompt)}...",
-                file=sys.stderr,
-            )
+            if args.backend == "procedural":
+                print(
+                    "Generating (procedural placeholder): "
+                    f"{_generate.procedural_caption(prompt)}...",
+                    file=sys.stderr,
+                )
+            else:
+                print(
+                    f"Generating via the '{args.backend}' backend...",
+                    file=sys.stderr,
+                )
             art = _generate.prompt_to_ascii(
-                prompt, size=args.gen_size, **convert_opts
+                prompt,
+                backend=_generate.get_backend(args.backend),
+                size=args.gen_size,
+                **convert_opts,
             )
         else:
             art = image_to_ascii(image_path, **convert_opts)

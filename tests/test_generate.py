@@ -5,6 +5,9 @@ Pillow, so the whole prompt -> image -> ASCII path is exercised offline and
 deterministically.
 """
 
+import shlex
+import sys
+
 import pytest
 from PIL import Image
 
@@ -58,6 +61,40 @@ def test_get_backend_default_is_procedural():
 def test_get_backend_unknown_raises():
     with pytest.raises(KeyError):
         gen.get_backend("does-not-exist")
+
+
+# --- the CommandBackend (external-generator seam) --------------------------
+
+def test_command_backend_runs_external_command(tmp_path):
+    # A stand-in "generator": a tiny script that writes a solid PNG. Proves the
+    # shell-out -> load -> convert path without depending on a real model.
+    script = tmp_path / "fakegen.py"
+    script.write_text(
+        "import sys\n"
+        "from PIL import Image\n"
+        "size = int(sys.argv[1]); out = sys.argv[2]\n"
+        "Image.new('RGB', (size, size), (30, 120, 200)).save(out)\n"
+    )
+    cmd = (f"{shlex.quote(sys.executable)} {shlex.quote(str(script))} "
+           "{size} {output}")
+    img = gen.CommandBackend(command=cmd).generate("anything", size=64)
+    assert img.size == (64, 64)
+    assert img.mode == "RGB"
+
+
+def test_command_backend_without_command_errors():
+    with pytest.raises(RuntimeError):
+        gen.CommandBackend(command="").generate("a prompt", size=32)
+
+
+def test_command_backend_reports_command_failure():
+    with pytest.raises(RuntimeError):
+        gen.CommandBackend(command="false").generate("a prompt", size=32)
+
+
+def test_command_backend_errors_when_no_image_written():
+    with pytest.raises(RuntimeError):
+        gen.CommandBackend(command="true").generate("a prompt", size=32)
 
 
 # --- the end-to-end prompt_to_ascii path -----------------------------------
