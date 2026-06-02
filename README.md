@@ -1,25 +1,36 @@
 # asciigpt
 
-**A real CLI image to ASCII-art converter. Runs local, no network.**
+**A real CLI ASCII-art tool — generate from a text prompt, or convert an image. Runs local.**
 
 ```bash
+python generate.py --prompt "a shaded sphere" --preset high-contrast
 python generate.py photo.jpg --preset high-contrast
 ```
 
-asciigpt turns an image into genuine ASCII art with real conversion
-technique: a Pillow preprocessing stack, named gradient presets, a Sobel
-edge-detection mode with directional glyphs, three dithering algorithms,
-and plain-text / ANSI-truecolor / HTML output. It also renders FIGlet text
-banners. The feature set matches or beats the tools it learned from:
-`jp2a`, `libcaca` / `img2txt`, and `asciiart.eu`.
+asciigpt turns a text prompt **or** an image into genuine ASCII art. The
+engine is a real deterministic converter — a Pillow preprocessing stack,
+named gradient presets, a Sobel edge-detection mode with directional glyphs,
+three dithering algorithms, and plain-text / ANSI-truecolor / HTML output —
+that matches or beats the tools it learned from (`jp2a`, `libcaca` /
+`img2txt`, `asciiart.eu`). On top of that sits the headline capability:
+**generate** art from a prompt by making a base image and converting it. It
+also renders FIGlet text banners.
 
-> **What this is not (yet):** asciigpt does **not** generate images from
-> prompts and does **not** ask an LLM to "draw" characters. It is a
-> deterministic converter. AI-guided glyph selection is a documented future
-> layer on top of this base, not part of it.
+> **How generation works (and what it isn't):** a prompt goes through a
+> pluggable *image backend* to make a base picture, which the converter then
+> turns into ASCII (`prompt → image → ASCII`). The output is ASCII, never a
+> raster image. asciigpt does **not** train its own image model and does
+> **not** ask an LLM to "type" characters — those were the unreliable paths.
+> The default backend is an **offline procedural** placeholder; a live backend
+> (a hosted text-to-image API, or a local renderer like the `rasterize`
+> plugin) drops in behind the same interface.
 
 ## What it does
 
+- **Generate from a prompt** — `--prompt "a neon city"` makes a base image
+  through a pluggable backend and converts it to ASCII. An offline procedural
+  backend is the default; `--backend command` shells out to any external
+  generator. Every converter feature below applies to generated art too.
 - **Named gradient presets** — ~20 character-ramp styles you pick by name
   (`--preset high-contrast`), mirroring asciiart.eu's set (Alphabetic,
   Code Page 437, Gray Scale, Minimalist, ...) plus themed ramps of our own.
@@ -59,6 +70,28 @@ No API key, no account, no upload. Everything runs on your machine.
 is equivalent.
 
 ## Usage
+
+### Generate from a prompt
+
+```bash
+# Offline procedural backend (default) — no network, deterministic
+python generate.py --prompt "a shaded sphere" --preset high-contrast
+python generate.py --prompt "a little house" --edges
+
+# Live backend: shell out to any external image generator. The command is a
+# template with {prompt} {output} {size}; it must write an image to {output}.
+export ASCIIGPT_IMAGE_COMMAND='txt2img --prompt {prompt} --size {size} --out {output}'
+python generate.py --prompt "a neon city at dusk" --backend command --format ansi
+```
+
+The default **procedural** backend recognises a handful of subjects (sphere,
+sun, moon, star, house, tree, mountain, heart, face) and draws a deterministic
+abstract composition for anything else — it exists to prove the pipeline
+offline, not to be a general artist. For arbitrary prompts, point
+`--backend command` at a real generator: a hosted text-to-image API, or the
+[`rasterize`](https://github.com/suxrobgm/rasterize) Claude Code plugin
+rendering to a file. See [`docs/handoffs/`](docs/handoffs/) for the
+prompt → image → ASCII design notes.
 
 ### Basic conversion
 
@@ -239,6 +272,7 @@ asciigpt is a small, readable package under [`asciigpt/`](asciigpt/):
 | `render.py` | text / ANSI / HTML serialisers |
 | `figlet.py` | FIGlet banners and overlay compositing |
 | `convert.py` | The pipeline that wires it all together (`image_to_ascii`) |
+| `generate.py` | Prompt → image → ASCII: pluggable backends + `prompt_to_ascii` |
 | `cli.py` | argparse front end |
 
 `generate.py` at the repo root is a thin shim that forwards to `cli.py`.
@@ -271,8 +305,12 @@ binary fixtures are needed.
 
 ## What's next
 
-The deterministic base is the foundation. The planned next layer is the
-"GPT" differentiator: **AI-guided glyph selection** that picks characters to
-preserve edges and texture instead of mapping luminance blindly — enhancing
-the real conversion rather than replacing it. That work is intentionally out
-of scope for this build.
+The converter and the generation seam are both in. Next:
+
+- **A live backend for real prompts** — wire a hosted text-to-image API (cost
+  absorbed server-side) or the `rasterize` plugin into `--backend command`, so
+  arbitrary prompts produce real art rather than the procedural placeholders.
+- **retrogaze integration** — ship this as a free companion to the SaaS.
+- **AI-guided glyph selection** — the original "GPT" idea still stands as a
+  quality layer: let a model pick glyphs that preserve edges and texture
+  instead of mapping luminance blindly.

@@ -1,56 +1,30 @@
 # asciigpt — Task Backlog
 
-> Priority: P0 = must-have for prototype, P1 = v1.0, P2 = post-v1 polish
+> Priority: P0 = must-have, P1 = next, P2 = later polish.
+> **Updated 2026-06-02:** re-aligned to the generative vision (prompt → image →
+> ASCII). The old "prompt → LLM-draws-characters" backlog is gone — that path
+> was retired. See `docs/handoffs/generative-revival-2026-06-02.md`.
 
-## Phase 1: Foundation
+## Done
 
-| ID | Task | Pri | Status |
-|----|------|-----|--------|
-| F1 | Create MISSION.md | P0 | done |
-| F2 | Create tasks.md | P0 | done |
-| F3 | Create README.md with usage and examples | P1 | todo |
-| F4 | Set up Python project structure (requirements.txt, .gitignore) | P0 | todo |
+| What | Notes |
+|------|-------|
+| Deterministic converter | presets, preprocessing, Sobel edges, dithering, text/ANSI/HTML, FIGlet |
+| In-memory image input | `image_to_ascii` accepts a PIL image, not just a path |
+| Generation seam | `asciigpt/generate.py`: pluggable `ImageBackend` + `prompt_to_ascii` |
+| ProceduralBackend | offline, deterministic keyword scenes — the seam's proof |
+| CommandBackend | live generation via any external command (`$ASCIIGPT_IMAGE_COMMAND`) |
+| CLI generation | `--prompt` / `--backend` / `--gen-size`; v0.3.0; 94 tests green |
 
-## Phase 2: Research
-
-| ID | Task | Pri | Status |
-|----|------|-----|--------|
-| R1 | Analyze asciiart.eu/image-to-ascii — algorithm, char sets, tuning | P0 | todo |
-| R2 | Analyze jp2a — baseline quality, flags, limitations | P0 | todo |
-| R3 | Analyze libcaca/img2txt — approach, strengths | P1 | todo |
-| R4 | Survey Nokse22/ascii-draw — UX patterns, glyph handling | P2 | todo |
-| R5 | Document findings in research.md | P0 | todo |
-
-## Phase 3: Pipeline Design
+## Next
 
 | ID | Task | Pri | Status |
 |----|------|-----|--------|
-| P1 | Define input types and their processing paths | P0 | todo |
-| P2 | Design prompt-to-ascii LLM pipeline | P0 | todo |
-| P3 | Design image-to-ascii conversion pipeline | P0 | todo |
-| P4 | Define glyph density map for output quality | P0 | todo |
-| P5 | Document the pipeline in pipeline.md | P0 | todo |
-
-## Phase 4: Prototype Implementation
-
-| ID | Task | Pri | Status |
-|----|------|-----|--------|
-| I1 | DeepSeek API client module | P0 | todo |
-| I2 | Prompt-to-ascii generation (LLM in the loop) | P0 | todo |
-| I3 | Image preprocessing (resize, grayscale, edge detection) | P0 | todo |
-| I4 | Density-aware glyph mapping | P0 | todo |
-| I5 | Image-to-ascii conversion pipeline | P0 | todo |
-| I6 | CLI interface (argparse: --prompt, --image, --width, etc.) | P0 | todo |
-| I7 | Output formatting (terminal, file, clipboard) | P1 | todo |
-| I8 | Configuration system (API keys, defaults) | P1 | todo |
-
-## Phase 5: Quality & Polish
-
-| ID | Task | Pri | Status |
-|----|------|-----|--------|
-| Q1 | Test with diverse prompts (landscapes, portraits, objects) | P0 | todo |
-| Q2 | Test with diverse images (photos, illustrations, logos) | P0 | todo |
-| Q3 | Compare output quality against jp2a baseline | P1 | todo |
-| Q4 | Tune LLM prompt for better glyph selection | P0 | todo |
-| Q5 | Tune density map for better contrast and edges | P0 | todo |
-| Q6 | Add examples/ directory with sample outputs | P1 | todo |
+| L1 | Live backend for arbitrary prompts: a hosted text-to-image API behind `--backend command` (or a native `ApiBackend`) | P0 | todo |
+| R1 | retrogaze integration: expose generation as a free service alongside the SaaS (server absorbs backend cost) | P0 | todo |
+| L2 | rasterize recipe: documented + smoke-tested `prompt → /render PNG → asciigpt` dev flow | P1 | todo |
+| L3 | Packaging: `pyproject.toml` so `pip install .` gives a real `asciigpt` console script | P1 | todo |
+| E1 | Example gallery: add a generated-from-prompt example (committed CLI output) | P1 | todo |
+| Q1 | Prompt quality: per-subject default preset/preprocess; richer procedural scenes | P2 | todo |
+| Q2 | AI-guided glyph selection (the original "GPT" quality layer) | P2 | todo |
+| O1 | Optional ASCII → PNG output for monospace-unsafe sharing — deferred (Ray is fine without it) | P2 | todo |
